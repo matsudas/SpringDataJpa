@@ -1,0 +1,135 @@
+//ext.springVersion='3.2.1.RELEASE'
+ext.springVersion='4.0.3.RELEASE'
+
+apply plugin: 'java'
+
+//sourceCompatibility = 1.5
+//version = '1.0'
+
+buildscript {
+    repositories {
+        maven { url "http://repo.springsource.org/plugins-release" }
+    }
+    dependencies {
+        classpath("org.springframework.build.gradle:propdeps-plugin:0.0.5")
+        classpath("org.gradle.api.plugins:gradle-tomcat-plugin:1.2.3")
+        classpath("org.asciidoctor:asciidoctor-gradle-plugin:0.7.0")
+        classpath("org.springframework.build.gradle:docbook-reference-plugin:0.2.8")
+    }
+}
+
+configurations {
+    compile
+    // for querydsl
+    querydslapt
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    compile 'org.slf4j:slf4j-api:1.5.8'
+    compile 'org.slf4j:slf4j-simple:1.5.8'
+    compile 'ch.qos.logback:logback-core:0.9.17'
+
+    compile 'org.springframework.data:spring-data-jpa:1.3.0.RELEASE'
+    compile 'org.springframework:spring-orm:${springVersion}'
+    compile 'org.springframework:spring-jdbc:${springVersion}'
+    compile 'org.springframework:spring-tx:${springVersion}'
+    compile 'org.hibernate.javax.persistence:hibernate-jpa-2.0-api:1.0.1.Final'
+    compile 'org.hibernate:hibernate-entitymanager:4.1.9.Final'
+    //compile 'com.mysema.querydsl:querydsl-jpa:3.3.2'
+    compile 'com.mysema.querydsl:querydsl-jpa:2.9.0'
+    // for querydsl
+    //querydslapt 'com.mysema.querydsl:querydsl-apt:3.3.2'
+    querydslapt 'com.mysema.querydsl:querydsl-apt:2.9.0'
+
+    compile 'org.postgresql:postgresql:9.3-1100-jdbc4'
+
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
+task demo (dependsOn: 'classes', type: JavaExec) {
+    main = 'com.springdatademo.app.Demo'
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+// ----------------
+// for querydsl <S>
+// ----------------
+// see -> http://www.querydsl.com/
+// see -> https://gist.github.com/EdwardBeckett/5377401
+sourceSets {
+    generated {
+        java {
+            //srcDirs = ['src/generated/java']
+            srcDirs = ['src/main/java']
+        }
+    }
+}
+
+task generateQueryDSL(type: JavaCompile, group: 'build', description: 'Generates the QueryDSL query types') {
+    source = sourceSets.main.java
+    classpath = configurations.compile + configurations.querydslapt
+    options.compilerArgs = [
+            "-proc:only",
+            "-processor", "com.mysema.query.apt.jpa.JPAAnnotationProcessor"
+    ]
+    destinationDir = sourceSets.generated.java.srcDirs.iterator().next()
+}
+
+compileJava {
+    dependsOn generateQueryDSL
+    source generateQueryDSL.destinationDir
+}
+
+compileGeneratedJava {
+    dependsOn generateQueryDSL
+    options.warnings = false
+    classpath += sourceSets.main.runtimeClasspath
+}
+
+clean {
+    delete sourceSets.generated.java.srcDirs
+}
+
+/*
+idea {
+    module {
+        //sourceDirs += file('src/generated/java')
+        sourceDirs += file('src/main/java')
+    }
+}
+*/
+
+task qdemo (dependsOn: 'classes', type: JavaExec) {
+    main = 'com.springdatademo.app.QDemo'
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+// ----------------
+// for querydsl <E>
+// ----------------
+
+
+
+// Prepare Data using SQL -*- Don't work -*-
+/*
+task sql_demo << {
+    driverName = 'org.postgresql.Driver'
+    Class.forName(driverName)
+    groovy.sql.Sql sql = Sql.newInstance(
+            'jdbc:postgresql://localhost:5432/pg_sbox',
+            'shinay',
+            '',
+            driverName
+    )
+    sql.execute 'create table test (id int not null)'
+    sql.execute 'insert into test (id) values(1)'
+    sql.eachRow 'select * from test' {
+        println it
+    }
+}
+*/
